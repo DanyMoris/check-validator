@@ -1,0 +1,346 @@
+# Эталонные профили банковских документов.
+# Собирается автоматически: tools/build_profiles.py
+# Править вручную можно, но при пересборке правки потеряются —
+# кроме полей notes и quirks, они сохраняются.
+
+profiles:
+  ALFA/Выписка:
+    bank: ALFA
+    doc_type: Выписка
+    samples: 1
+    pdf_versions:
+    - '1.6'
+    objects:
+      min: 38
+      max: 38
+    producers:
+    - Oracle BI Publisher 12.2.1.4.0; modified using iText 4.2.0 by 1T3XT
+    font_sets:
+    - - Arial
+    subtype_sets:
+    - - CIDFontType2
+      - Form
+      - Image
+      - Type0
+    has_image:
+    - true
+    signature_expected: false
+    revisions:
+      min: 1
+      max: 1
+    size:
+      min: 125476
+      max: 125476
+    notes: ''
+    quirks: []
+  ALFA/Квитанция:
+    bank: ALFA
+    doc_type: Квитанция
+    samples: 5
+    pdf_versions:
+    - '1.6'
+    objects:
+      min: 16
+      max: 16
+    producers:
+    - Oracle BI Publisher 12.2.1.4.0
+    font_sets:
+    - - Tahoma
+    subtype_sets:
+    - - CIDFontType2
+      - Image
+      - Type0
+    has_image:
+    - true
+    signature_expected: false
+    revisions:
+      min: 1
+      max: 1
+    size:
+      min: 57508
+      max: 60199
+    notes: ''
+    quirks: []
+  SBER/Выписка:
+    bank: SBER
+    doc_type: Выписка
+    samples: 1
+    pdf_versions:
+    - '1.5'
+    objects:
+      min: 26
+      max: 26
+    producers:
+    - OpenPDF 1.3.32
+    font_sets:
+    - - PTSans-Bold
+      - PTSans-Italic
+      - PTSans-Regular
+    subtype_sets:
+    - - CIDFontType2
+      - Form
+      - Image
+      - Type0
+    has_image:
+    - true
+    signature_expected: false
+    revisions:
+      min: 1
+      max: 1
+    size:
+      min: 179848
+      max: 179848
+    notes: ''
+    quirks: []
+  SBER/Справка:
+    bank: SBER
+    doc_type: Справка
+    samples: 5
+    pdf_versions:
+    - '1.5'
+    objects:
+      min: 24
+      max: 30
+    producers:
+    - iText 2.1.7 by 1T3XT
+    font_sets:
+    - - Arial-BoldMT
+      - ArialMT
+    - - ArialMT
+      - TimesNewRomanPS-BoldMT
+      - TimesNewRomanPSMT
+    subtype_sets:
+    - - CIDFontType2
+      - Image
+      - Type0
+    has_image:
+    - true
+    signature_expected: false
+    revisions:
+      min: 1
+      max: 1
+    size:
+      min: 129165
+      max: 232437
+    notes: ''
+    quirks: []
+  SBER/Чек:
+    bank: SBER
+    doc_type: Чек
+    samples: 4
+    pdf_versions:
+    - '1.5'
+    objects:
+      min: 15
+      max: 22
+    producers:
+    - iText 2.1.7 by 1T3XT
+    font_sets:
+    - - Arial-BoldMT
+      - ArialMT
+    - - ArialMT
+    subtype_sets:
+    - - CIDFontType2
+      - Image
+      - Type0
+    has_image:
+    - true
+    signature_expected: false
+    revisions:
+      min: 1
+      max: 1
+    size:
+      min: 37108
+      max: 161339
+    notes: ''
+    quirks: []
+  TBANK/Выписка:
+    bank: TBANK
+    doc_type: Выписка
+    samples: 1
+    pdf_versions:
+    - '1.5'
+    objects:
+      min: 60
+      max: 60
+    producers:
+    - OpenPDF 1.3.30.jaspersoft.2
+    font_sets:
+    - - Symbola
+      - TinkoffSans-Medium
+      - TinkoffSans-Regular
+    subtype_sets:
+    - - CIDFontType2
+      - Image
+      - Link
+      - Type0
+    has_image:
+    - true
+    signature_expected: false
+    revisions:
+      min: 1
+      max: 1
+    size:
+      min: 130676
+      max: 130676
+    notes: ''
+    quirks: []
+  TBANK/Квитанция:
+    bank: TBANK
+    doc_type: Квитанция
+    samples: 8
+    pdf_versions:
+    - '1.5'
+    objects:
+      min: 26
+      max: 28
+    producers:
+    - OpenPDF 1.3.30.jaspersoft.2
+    font_sets:
+    - - ALSRubl
+      - TinkoffSans-Medium
+      - TinkoffSans-Regular
+    subtype_sets:
+    - - CIDFontType2
+      - Image
+      - Link
+      - TrueType
+      - Type0
+    has_image:
+    - true
+    signature_expected: false
+    revisions:
+      min: 1
+      max: 1
+    size:
+      min: 58719
+      max: 60130
+    notes: ''
+    quirks: []
+  TBANK/Справка:
+    bank: TBANK
+    doc_type: Справка
+    samples: 1
+    pdf_versions:
+    - '1.5'
+    objects:
+      min: 23
+      max: 23
+    producers:
+    - OpenPDF 1.3.30.jaspersoft.2
+    font_sets:
+    - - ALSRubl
+      - NeueHaasUnicaW1G-Regular
+      - TinkoffSans-Regular
+    subtype_sets:
+    - - CIDFontType2
+      - Image
+      - Link
+      - TrueType
+      - Type0
+    has_image:
+    - true
+    signature_expected: false
+    revisions:
+      min: 1
+      max: 1
+    size:
+      min: 59361
+      max: 59361
+    notes: ''
+    quirks: []
+  VTB/Выписка:
+    bank: VTB
+    doc_type: Выписка
+    samples: 1
+    pdf_versions:
+    - '1.5'
+    objects:
+      min: 22
+      max: 22
+    producers:
+    - OpenPDF 1.3.32
+    font_sets:
+    - - ArialMT
+      - Helvetica
+    subtype_sets:
+    - - CIDFontType2
+      - Image
+      - Type0
+      - Type1
+    has_image:
+    - true
+    signature_expected: false
+    revisions:
+      min: 1
+      max: 1
+    size:
+      min: 186175
+      max: 186175
+    notes: ''
+    quirks: []
+  VTB/Справка:
+    bank: VTB
+    doc_type: Справка
+    samples: 3
+    pdf_versions:
+    - '1.6'
+    objects:
+      min: 42
+      max: 42
+    producers:
+    - null
+    font_sets:
+    - - Andika-Bold
+      - LiberationSans
+      - LiberationSans-Bold
+    subtype_sets:
+    - - CIDFontType2
+      - Form
+      - Image
+      - Link
+      - TrueType
+      - Type0
+      - Widget
+    has_image:
+    - true
+    signature_expected: true
+    revisions:
+      min: 2
+      max: 2
+    size:
+      min: 65821
+      max: 66178
+    notes: ''
+    quirks:
+    - Документ подписан электронной подписью (ГОСТ Р 34.10-2012 (256 бит)); вторая ревизия файла — это
+      сама подпись, а не следы правки
+  VTB/Чек:
+    bank: VTB
+    doc_type: Чек
+    samples: 8
+    pdf_versions:
+    - '1.4'
+    objects:
+      min: 18
+      max: 18
+    producers:
+    - openhtmltopdf.com
+    font_sets:
+    - - SFProDisplay-Regular
+    subtype_sets:
+    - - CIDFontType2
+      - Form
+      - Type0
+    has_image:
+    - false
+    signature_expected: false
+    revisions:
+      min: 1
+      max: 1
+    size:
+      min: 8492
+      max: 9978
+    notes: ''
+    quirks:
+    - Внутри нет ни одной картинки — для этого шаблона это норма

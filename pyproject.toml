@@ -1,0 +1,32 @@
+[project]
+name = "check-validator"
+version = "0.1.0"
+description = "Проверка подлинности банковских чеков и справок (PDF)"
+requires-python = ">=3.11"
+dependencies = [
+    "pikepdf>=9",
+    "pyhanko>=0.25",
+    "asn1crypto>=1.5",
+    "PyYAML>=6",
+    "aiogram>=3.7",
+    "pydantic-settings>=2",
+    "pypdfium2>=4",
+    "gostcrypto>=1.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+docs = ["reportlab>=4"]
+
+[project.scripts]
+checkval = "checkvalidator.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

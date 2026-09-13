@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Real financial documents with personal data — never commit.
+# The folder structure and READMEs are kept; the documents are not.
+resources/**/*.pdf
+resources/**/*.csv
+resources/genuine/**/*.txt
+
+# Secrets and local runtime data
+.env
+data/
+
+# Generated artefacts
+docs/_preview/
+build/
+
+# Client demo PDFs are derived from real samples — keep them local.
+demo/**/*.pdf
