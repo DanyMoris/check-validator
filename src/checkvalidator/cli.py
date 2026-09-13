@@ -9,7 +9,7 @@ from pathlib import Path
 from .engine import analyse
 from .extract import extract, format_dt, format_rub
 from .ledger import Ledger, parse_coverage_args, parse_income_args
-from .models import Report, Severity, Verdict
+from .models import CheckMode, Report, Severity, Verdict
 from .profiles import ProfileRegistry
 
 DEFAULT_DB = Path("data") / "bot.db"
@@ -17,6 +17,7 @@ DEFAULT_DB = Path("data") / "bot.db"
 MARK = {True: "  ок  ", False: "  !!  "}
 VERDICT_LINE = {
     Verdict.CONFIRMED: "ПОДТВЕРЖДЁН",
+    Verdict.GENUINE: "ПОДЛИННЫЙ",
     Verdict.FORGED: "ПОДДЕЛКА",
     Verdict.UNCONFIRMED: "НЕ ПОДТВЕРЖДЁН",
 }
@@ -77,6 +78,7 @@ def cmd_check(args: argparse.Namespace) -> int:
             expected=args.expect,
             ledger=ledger,
             consume=args.consume,
+            mode=args.mode,
         )
         _print_report(path, report, args.verbose)
         if report.verdict is Verdict.FORGED:
@@ -294,6 +296,12 @@ def main(argv: list[str] | None = None) -> int:
         "--consume",
         action="store_true",
         help="пометить найденное поступление как использованное",
+    )
+    p_check.add_argument(
+        "--mode",
+        choices=[CheckMode.LEDGER.value, CheckMode.STRUCTURE.value],
+        default=CheckMode.LEDGER.value,
+        help="ledger — сверка с журналом; structure — только шаблон файла",
     )
     p_check.set_defaults(func=cmd_check)
 

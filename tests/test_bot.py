@@ -67,6 +67,14 @@ def test_store_remembers_previous_verdict(tmp_path: Path) -> None:
     assert past.profile_id == "VTB/Чек"
 
 
+def test_store_mode_roundtrip(tmp_path: Path) -> None:
+    from checkvalidator.models import CheckMode
+
+    store = Store(tmp_path / "prefs.db")
+    store.set_mode(3, CheckMode.STRUCTURE)
+    assert store.get_mode(3) is CheckMode.STRUCTURE
+
+
 def test_format_report_escapes_html() -> None:
     report = Report(
         verdict=Verdict.FORGED,
@@ -112,6 +120,7 @@ def test_format_help_mentions_income() -> None:
     assert "/ledger_reset" in text
     assert "/withdraw" in text
     assert "ПОДТВЕРЖДЁН" in text
+    assert "ПОДЛИННЫЙ" in text
     assert "по счёту" in text or "по счету" in text.replace("ё", "е")
 
 

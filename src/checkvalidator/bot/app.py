@@ -30,6 +30,7 @@ from aiogram.types import (
 from checkvalidator.engine import analyse
 from checkvalidator.extract import extract_pdf_text, format_dt, format_rub
 from checkvalidator.ledger import Ledger, LedgerImport, parse_coverage_args, parse_income_args
+from checkvalidator.models import CheckMode
 from checkvalidator.profiles import ProfileRegistry
 from checkvalidator.sms import looks_like_sber_sms
 from checkvalidator.statements import looks_like_statement
@@ -42,6 +43,9 @@ from .formatters import (
     format_help,
     format_income_help,
     format_ledger,
+    format_ledger_off,
+    format_mode_prompt,
+    format_mode_set,
     format_report,
     format_reset_help,
     format_statement_help,
@@ -87,6 +91,25 @@ class Runtime:
     awaiting_income: dict[int, float]
     awaiting_statement: dict[int, float]
     awaiting_withdraw: dict[int, float]
+
+
+def mode_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Есть выписки — сверка со счётом",
+                    callback_data="m:ledger",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Нет выписок — только файл",
+                    callback_data="m:structure",
+                )
+            ],
+        ]
+    )
 
 
 def bank_keyboard() -> InlineKeyboardMarkup:
@@ -187,6 +210,24 @@ def _is_allowed(message: Message, runtime: Runtime) -> bool:
 
 def _user_id(message: Message) -> int:
     return message.from_user.id if message.from_user else 0
+
+
+def _mode_of(runtime: Runtime, user_id: int) -> CheckMode | None:
+    return runtime.store.get_mode(user_id)
+
+
+async def _need_ledger(message: Message, runtime: Runtime) -> bool:
+    mode = _mode_of(runtime, _user_id(message))
+    if mode is CheckMode.LEDGER:
+        return True
+    if mode is CheckMode.STRUCTURE:
+        await message.answer(format_ledger_off())
+        return False
+    await message.answer(
+        format_mode_prompt(None),
+        reply_markup=mode_keyboard(),
+    )
+    return False
 
 
 def _still_waiting(bucket: dict[int, float], user_id: int) -> bool:
@@ -313,6 +354,11 @@ async def cmd_start(message: Message, runtime: Runtime) -> None:
         await _deny(message)
         return
     await message.answer(format_help(runtime.allowlist.is_open))
+    current = runtime.store.get_mode(_user_id(message))
+    await message.answer(
+        format_mode_prompt(current),
+        reply_markup=mode_keyboard(),
+    )
 
 
 @router.message(Command("id"))
@@ -344,6 +390,8 @@ async def cmd_income(message: Message, runtime: Runtime) -> None:
     if not _is_allowed(message, runtime):
         await _deny(message)
         return
+    if not await _need_ledger(message, runtime):
+        return
     parsed = parse_income_args(message.text or "")
     if parsed is None:
         runtime.awaiting_income[_user_id(message)] = monotonic()
@@ -365,6 +413,8 @@ async def cmd_statement(message: Message, runtime: Runtime) -> None:
     if not _is_allowed(message, runtime):
         await _deny(message)
         return
+    if not await _need_ledger(message, runtime):
+        return
     runtime.awaiting_statement[_user_id(message)] = monotonic()
     await message.answer(format_statement_help())
 
@@ -373,6 +423,8 @@ async def cmd_statement(message: Message, runtime: Runtime) -> None:
 async def cmd_coverage(message: Message, runtime: Runtime) -> None:
     if not _is_allowed(message, runtime):
         await _deny(message)
+        return
+    if not await _need_ledger(message, runtime):
         return
     parsed = parse_coverage_args(message.text or "")
     if parsed is None:
@@ -392,6 +444,8 @@ async def cmd_ledger(message: Message, runtime: Runtime) -> None:
     if not _is_allowed(message, runtime):
         await _deny(message)
         return
+    if not await _need_ledger(message, runtime):
+        return
     texts = format_ledger(runtime.ledger.list_entries(), runtime.ledger.list_coverage())
     for text in texts:
         await message.answer(text)
@@ -401,6 +455,8 @@ async def cmd_ledger(message: Message, runtime: Runtime) -> None:
 async def cmd_ledger_reset(message: Message, runtime: Runtime) -> None:
     if not _is_allowed(message, runtime):
         await _deny(message)
+        return
+    if not await _need_ledger(message, runtime):
         return
     entries, coverage = runtime.ledger.counts()
     if entries == 0 and coverage == 0:
@@ -416,6 +472,8 @@ async def cmd_ledger_reset(message: Message, runtime: Runtime) -> None:
 async def cmd_withdraw(message: Message, runtime: Runtime) -> None:
     if not _is_allowed(message, runtime):
         await _deny(message)
+        return
+    if not await _need_ledger(message, runtime):
         return
     runtime.awaiting_withdraw[_user_id(message)] = monotonic()
     items = runtime.ledger.list_imports(8)
@@ -488,11 +546,23 @@ async def on_document(message: Message, bot: Bot, runtime: Runtime) -> None:
     data = buffer.getvalue()
 
     digest = hashlib.sha256(data).hexdigest()
+    mode = runtime.store.get_mode(user.id)
     if _still_waiting(runtime.awaiting_withdraw, user.id):
+        if mode is not CheckMode.LEDGER:
+            await message.answer(format_ledger_off())
+            return
         await _offer_withdraw_by_file(message, runtime, digest=digest, name=name)
         return
     kind = _feed_kind(runtime, user.id)
     if looks_csv or kind is not None:
+        if mode is not CheckMode.LEDGER:
+            await message.answer(
+                format_ledger_off()
+                if mode is CheckMode.STRUCTURE
+                else format_mode_prompt(None),
+                reply_markup=None if mode is CheckMode.STRUCTURE else mode_keyboard(),
+            )
+            return
         await _ingest_income_file(
             message,
             runtime,
@@ -517,7 +587,7 @@ async def on_document(message: Message, bot: Bot, runtime: Runtime) -> None:
         as_statement = looks_like_statement(extract_pdf_text(dest))
     except Exception:
         as_statement = False
-    if as_statement:
+    if as_statement and mode is CheckMode.LEDGER:
         await _ingest_income_file(
             message,
             runtime,
@@ -535,6 +605,12 @@ async def on_document(message: Message, bot: Bot, runtime: Runtime) -> None:
         user_id=user.id,
         saved_at=monotonic(),
     )
+    if mode is None:
+        await message.answer(
+            format_mode_prompt(None),
+            reply_markup=mode_keyboard(),
+        )
+        return
     await message.answer(
         "Файл получен. Укажите банк — сверка с эталоном будет точнее. "
         "Если не уверены, нажмите «Определить самим».",
@@ -577,6 +653,17 @@ async def fallback_text(message: Message, runtime: Runtime) -> None:
 async def _ingest_sms(message: Message, runtime: Runtime, text: str) -> bool:
     if not looks_like_sber_sms(text):
         return False
+    user_id = _user_id(message)
+    if runtime.store.get_mode(user_id) is not CheckMode.LEDGER:
+        await message.answer(
+            format_ledger_off()
+            if runtime.store.get_mode(user_id) is CheckMode.STRUCTURE
+            else format_mode_prompt(None),
+            reply_markup=None
+            if runtime.store.get_mode(user_id) is CheckMode.STRUCTURE
+            else mode_keyboard(),
+        )
+        return True
     result = runtime.ledger.import_sms(text, received_at=datetime.now())
     user_id = _user_id(message)
     if _feed_kind(runtime, user_id) == "income":
@@ -617,6 +704,11 @@ async def _finish_check(
         await callback.answer("Нет доступа", show_alert=True)
         return
 
+    mode = runtime.store.get_mode(user.id)
+    if mode is None:
+        await callback.answer("Сначала выберите, есть ли выписки — /start", show_alert=True)
+        return
+
     pending = _take_pending(runtime, user.id)
     if pending is None:
         await callback.answer("Файл устарел — пришлите PDF ещё раз", show_alert=True)
@@ -628,6 +720,7 @@ async def _finish_check(
         await callback.message.edit_text(hint)
 
     previous = runtime.store.last_by_hash(pending.sha256)
+    use_ledger = mode is CheckMode.LEDGER
     loop = asyncio.get_running_loop()
     try:
         report = await loop.run_in_executor(
@@ -636,9 +729,10 @@ async def _finish_check(
                 pending.path,
                 runtime.registry,
                 expected=expected,
-                ledger=runtime.ledger,
-                consume=True,
+                ledger=runtime.ledger if use_ledger else None,
+                consume=use_ledger,
                 doc_hash=pending.sha256,
+                mode=mode,
             ),
         )
     except Exception:
@@ -661,6 +755,34 @@ async def _finish_check(
     runtime.pending.pop(user.id, None)
 
     text = format_report(report, previous=previous)
+    if callback.message:
+        await callback.message.edit_text(text)
+
+
+@router.callback_query(F.data.startswith("m:"))
+async def on_mode(callback: CallbackQuery, runtime: Runtime) -> None:
+    user = callback.from_user
+    if user is None or not runtime.allowlist.permits(user.id):
+        await callback.answer("Нет доступа", show_alert=True)
+        return
+    raw = (callback.data or "m:structure")[2:]
+    try:
+        mode = CheckMode(raw)
+    except ValueError:
+        await callback.answer("Непонятная кнопка", show_alert=True)
+        return
+    runtime.store.set_mode(user.id, mode)
+    await callback.answer()
+    pending = _take_pending(runtime, user.id)
+    text = format_mode_set(mode)
+    if pending is not None:
+        text += (
+            "\n\nФайл уже получен. Укажите банк — сверка с эталоном будет точнее. "
+            "Если не уверены, нажмите «Определить самим»."
+        )
+        if callback.message:
+            await callback.message.edit_text(text, reply_markup=bank_keyboard())
+        return
     if callback.message:
         await callback.message.edit_text(text)
 

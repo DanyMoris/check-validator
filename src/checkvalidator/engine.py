@@ -22,7 +22,7 @@ from .extract import (
 from .fingerprint import Fingerprint, fingerprint
 from .gostsig import verify_pdf_gost
 from .ledger import Ledger, MatchResult, match_signals
-from .models import Report, Severity, Signal, Verdict
+from .models import CheckMode, Report, Severity, Signal, Verdict
 from .profiles import Profile, ProfileRegistry
 
 WARN_ESCALATION_THRESHOLD = 3
@@ -85,6 +85,21 @@ def _summarise(
             if s.failed and s.severity is Severity.CRITICAL
         ]
         return "Документ не прошёл проверку. " + ". ".join(reasons) + "."
+    if verdict is Verdict.GENUINE:
+        who = next(
+            (s.evidence.get("signer") for s in report_signals if s.id == "gost_crypto" and s.passed),
+            None,
+        )
+        if who:
+            return (
+                f"Документ банка: электронная подпись «{who}» сходится, файл не меняли. "
+                "Это про подлинность PDF, не про зачисление денег на счёт."
+            )
+        return (
+            "Документ совпадает с шаблоном банка: его собрала та же программа, "
+            "файл не пересохраняли в Word, «печать в PDF» и подобных программах. "
+            "Это не проверка, что деньги пришли — выписок в этом режиме нет."
+        )
     if verdict is Verdict.CONFIRMED:
         if match is not None and match.confirmed and match.hit is not None:
             return (
@@ -150,6 +165,7 @@ def analyse(
     ledger: Ledger | None = None,
     consume: bool = False,
     doc_hash: str | None = None,
+    mode: CheckMode | str = CheckMode.LEDGER,
 ) -> Report:
     """Проверяет документ.
 
@@ -158,12 +174,15 @@ def analyse(
     такого заявления неопознанный документ остаётся просто неопознанным: у нас
     нет способа отличить подделку от банка, эталон которого мы ещё не собрали.
 
-    ledger — журнал реальных поступлений. Совпадение по сумме и дате даёт
-    вердикт ПОДТВЕРЖДЁН. Если поступления в журнале нет, документ с корректной
-    структурой остаётся НЕ ПОДТВЕРЖДЁН: отсутствие в выписке само по себе не
-    подделка. Исходящий чек отправителя с журналом поступлений не сверяется
-    как доказательство фальшивки. consume=True помечает найденную запись, чтобы
-    один платёж не подтвердил два разных файла.
+    mode=LEDGER (по умолчанию) — сверка с журналом: совпадение суммы и даты даёт
+    ПОДТВЕРЖДЁН; нет прихода при живой структуре — НЕ ПОДТВЕРЖДЁН, не подделка.
+
+    mode=STRUCTURE — журнала нет. Шаблон банка совпал и критических следов
+    чужой программы нет → ПОДЛИННЫЙ. Файл пересохранили (Word, печать в PDF) →
+    ПОДДЕЛКА. Неопознанный банк по-прежнему НЕ ПОДТВЕРЖДЁН: это не обвинение.
+
+    consume=True помечает найденную запись журнала, чтобы один платёж не
+    подтвердил два разных файла.
     """
     registry = registry if registry is not None else ProfileRegistry.load()
     fp: Fingerprint = fingerprint(path)
@@ -237,6 +256,8 @@ def analyse(
     if gost is not None:
         signals.extend(run_gost(gost))
 
+    mode = mode if isinstance(mode, CheckMode) else CheckMode(mode)
+
     match: MatchResult | None = None
     digest = doc_hash
     direction = "unknown"
@@ -244,7 +265,9 @@ def analyse(
         direction = document_direction(extract_pdf_text(path))
     except Exception:  # noqa: BLE001
         direction = "unknown"
-    if ledger is not None:
+    use_ledger = mode is CheckMode.LEDGER and ledger is not None
+    if use_ledger:
+        assert ledger is not None
         if digest is None:
             digest = _file_sha256(path)
         match = ledger.match(fields, digest)
@@ -254,9 +277,17 @@ def analyse(
 
     signed_ok = gost is not None and gost.ok
     money_ok = match is not None and match.confirmed
-    if signed_ok or money_ok:
+    critical = any(s.failed and s.severity is Severity.CRITICAL for s in signals)
+    if mode is CheckMode.STRUCTURE:
+        if critical:
+            verdict = Verdict.FORGED
+        elif signed_ok or profile is not None:
+            verdict = Verdict.GENUINE
+        else:
+            verdict = Verdict.UNCONFIRMED
+    elif signed_ok or money_ok:
         verdict = Verdict.CONFIRMED
-    elif any(s.failed and s.severity is Severity.CRITICAL for s in signals):
+    elif critical:
         verdict = Verdict.FORGED
     else:
         verdict = Verdict.UNCONFIRMED

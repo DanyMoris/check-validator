@@ -55,14 +55,26 @@ Empty folders are fine. Not every bank offers all three document types.
 
 ## The fraudulent folders
 
-Empty, and likely to stay that way for a while — confirmed fakes are hard to come by. Until
-real ones appear, `tools/forge.py` will synthesise test forgeries from the genuine samples
-(edited in place, re-rendered, rasterised, metadata-scrubbed) into a temporary directory at
-test time. Those are deliberately not committed, so these folders only ever hold forgeries
-that are genuinely real.
+`resources/fraudulent/<БАНК>/<ТИП>/` holds **synthetic** fakes used to check that
+the detector notices a file saved by the wrong program. The page is copied from a
+genuine sample; only PDF Info metadata (`Producer`, `Creator`, `ModDate`) is
+rewritten — Acrobat Distiller or Microsoft Print To PDF. Visually it is the same
+document; the bot in «нет выписок» mode must answer **ПОДДЕЛКА**.
 
-When real fakes do arrive, add them here and re-run calibration. Thresholds tuned against
-synthetic attacks are a starting point, not a finished answer.
+Build or refresh:
+
+```powershell
+.\.venv\Scripts\python.exe tools\populate_fraudulent.py
+```
+
+Two files per bank (VTB чек, Sber чек, Alfa квитанция, T-Bank квитанция). PDFs
+stay gitignored: they still contain personal data from the genuine originals.
+Only the folder layout and `.gitkeep` are in git.
+
+Real-world confirmed forgeries, if you ever obtain them, go in the same tree.
+Do not run `build_profiles.py` on this folder — profiles are built from `genuine/`
+only.
+
 
 ## A note on contents
 

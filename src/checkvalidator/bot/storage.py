@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from checkvalidator.models import CheckMode
+
 
 @dataclass(frozen=True, slots=True)
 class PastCheck:
@@ -46,6 +48,15 @@ class Store:
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_submissions_sha256 ON submissions(sha256)"
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_prefs (
+                    user_id INTEGER PRIMARY KEY,
+                    check_mode TEXT NOT NULL,
+                    set_at TEXT NOT NULL
+                )
+                """
             )
 
     def last_by_hash(self, sha256: str) -> PastCheck | None:
@@ -89,4 +100,31 @@ class Store:
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (sha256, user_id, filename, expected, profile_id, verdict, stamp),
+            )
+
+    def get_mode(self, user_id: int) -> CheckMode | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT check_mode FROM user_prefs WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        try:
+            return CheckMode(row["check_mode"])
+        except ValueError:
+            return None
+
+    def set_mode(self, user_id: int, mode: CheckMode) -> None:
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO user_prefs (user_id, check_mode, set_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    check_mode = excluded.check_mode,
+                    set_at = excluded.set_at
+                """,
+                (user_id, mode.value, stamp),
             )

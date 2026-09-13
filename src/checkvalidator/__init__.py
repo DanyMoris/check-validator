@@ -5,7 +5,7 @@ from .extract import ExtractedFields, extract
 from .fingerprint import Fingerprint, fingerprint
 from .gostsig import GostVerifyResult, verify_pdf_gost
 from .ledger import Ledger
-from .models import Report, Severity, Signal, Verdict
+from .models import CheckMode, Report, Severity, Signal, Verdict
 from .profiles import Profile, ProfileRegistry
 
 __all__ = [
@@ -15,6 +15,7 @@ __all__ = [
     "fingerprint",
     "Fingerprint",
     "GostVerifyResult",
+    "CheckMode",
     "Ledger",
     "Report",
     "Severity",
